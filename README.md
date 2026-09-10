@@ -1,4 +1,4 @@
-# OmbreBrain Mods · 记忆系统扩展合集
+# Orrery · OmbreBrain 记忆系统扩展
 
 > 维护：anko / Rime / Feylor（tutooth.com）
 > 一组建立在 [OmbreBrain](https://github.com/p0luz)（下称 OB，一个 AI 长期记忆系统）之上的功能扩展：原文备份、更接近人类的遗忘模型、记忆可视化、设置接口。
