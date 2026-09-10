@@ -1,6 +1,6 @@
 # 给 OmbreBrain 加一个「设置 API」
 
-出品：anko & Rime（tutooth.com）· 2026-09-10 · MIT 授权
+维护：anko / Rime（tutooth.com）· 2026-09-10 · MIT 授权
 
 ## 这个补丁解决什么问题？
 

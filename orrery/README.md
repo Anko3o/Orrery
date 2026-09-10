@@ -1,6 +1,6 @@
 # 记忆天仪 · Memory Orrery
 
-出品：anko & Rime（tutooth.com）· 2026-08-11 起 · MIT 授权
+维护：anko / Rime（tutooth.com）· 2026-08-11 起 · MIT 授权
 
 ## 这是什么
 

@@ -1,6 +1,6 @@
 # 给 OmbreBrain 加一个「原文备份」功能
 
-出品：安可 & 小雾/Rime（tutooth.com）· 2026-08-17 · MIT 授权
+维护：anko / Rime（tutooth.com）· 2026-08-17 · MIT 授权
 
 ## 这个补丁解决什么问题？
 
