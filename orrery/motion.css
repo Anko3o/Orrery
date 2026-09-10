@@ -1,0 +1,125 @@
+/* ============================================================
+   兔牙家公共动效体系 v2 — 2026-08-10 小雾升级
+   v1 由小汐 2026-07-30 施工(工单:全站焕新与动画)，骨架沿用，变量名一个没改。
+
+   一套缓动 + 时长 + 通用工具类,全站统一引用:
+     <link rel="stylesheet" href="/assets/styles/motion.css">
+   各页在自身 :root 里可用 var(--tt-*) 覆盖。
+
+   ── v2 为什么动它（安可 8-10：「我们家现在就是动效废墟」）──
+   v1 的纪律写的是「单处动效 ≤300ms」。这条对**反馈类**动作完全正确 ——
+   按压、hover、开关超过 300ms 就发木。但它被当成了全局上限，于是**展示类**动作
+   （区块入场、封面浮起、页面转场）也被压在 260ms 里，动作还没舒展开就结束了，
+   一屏东西「唰」地一下全到位 —— 这就是「平」的来源。
+
+   对照组是安可给的参考站 damso.com：扒它的 CSS/JS chunk 拿到实数 ——
+   Lenis 惯性 lerp .12、GSAP `ease:"expo.inOut"` 19 处、`duration:1` 16 处。
+   人家的丝滑不是曲线玄学，是**把展示类时长放到 5 倍长**。
+   先在 /music/ 上整页验证过，安可的原话是「终于不卡了」「流畅好多」。
+
+   ── v2 的纪律（把一条拆成两条）──
+   · 反馈类（press / hover / ui / sheet）：≤300ms，不变。手指要跟得上。
+   · 展示类（enter / scene）：300~900ms，配 expo 系曲线。慢才有重量。
+   · 只动 transform 和 opacity。这两个走合成器不触发布局；
+     曾经在歌词行上给 font-size 做过渡，每帧重排整列，移动端直接掉帧。
+   · 不做满屏飞行；reduced-motion 全局降级。
+
+   回滚：同目录 motion.css.bak-20260810 是 v1 原件。
+   ============================================================ */
+:root {
+  /* -- 缓动 --
+     v1 原值留在注释里，想退回照抄即可。 */
+  --tt-ease-out:    cubic-bezier(.16, 1, .3, 1);    /* ≈expo.out 猛起步极缓收尾,默认   v1: .22,1,.36,1 */
+  --tt-ease-brisk:  cubic-bezier(.33, 1, .68, 1);   /* 官方推荐 ease-out,短反馈用       v1 同值 */
+  --tt-ease-spring: cubic-bezier(.22, 1.12, .44, 1);/* 微回弹,按压/弹出               v1: .34,1.42,.64,1 过冲 1.42 太果冻 */
+  --tt-ease-inout:  cubic-bezier(.87, 0, .13, 1);   /* ≈expo.inOut 两头都稳,大转场用    v1: .65,0,.35,1 */
+  --tt-ease-press:  cubic-bezier(.4, 0, .2, 1);     /* v2 新增:按下去那一下要跟手,不能带缓 */
+  /* -- 时长 · 反馈类(≤300ms,v1 原值全部保留) -- */
+  --tt-press: 120ms;   /* 按压确认 */
+  --tt-hover: 180ms;   /* hover 反馈 */
+  --tt-ui:    220ms;   /* 一般界面切换 */
+  --tt-sheet: 260ms;   /* 弹层切换 */
+  /* -- 时长 · 展示类(v2 新增,配 expo 曲线用) -- */
+  --tt-enter:   520ms; /* 入场浮起、卡片显形、列表行 */
+  --tt-scene:   880ms; /* 大转场、封面/唱片起停这类有重量的 */
+  --tt-stagger:  42ms; /* 列表逐行错开的间隔 */
+  /* -- 聚焦光晕 -- */
+  --tt-focus-ring: 0 0 0 3px rgba(194, 112, 138, .28);
+}
+
+/* ---- 通用微交互配方(各页按需挂 class,不自动污染) ---- */
+/* 可按压元素:桌面 hover 轻抬,触屏 :active 轻沉 */
+.tt-pressable {
+  transition:
+    transform var(--tt-hover) var(--tt-ease-out),
+    box-shadow var(--tt-hover) var(--tt-ease-out);
+}
+@media (hover: hover) {
+  .tt-pressable:hover { transform: translateY(-2px); }
+}
+.tt-pressable:active { transform: translateY(0) scale(.97); transition-duration: var(--tt-press); }
+
+/* 链接下划线:自左向右抽出的细线 */
+.tt-link {
+  position: relative;
+  text-decoration: none;
+}
+.tt-link::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -2px;
+  height: 1px; background: currentColor; border-radius: 1px;
+  transform: scaleX(0); transform-origin: left center;
+  transition: transform var(--tt-hover) var(--tt-ease-out);
+}
+@media (hover: hover) {
+  .tt-link:hover::after { transform: scaleX(1); }
+}
+
+/* 输入/文本域聚焦光晕:字段自带 border/背景,js 无需参与 */
+.tt-glow:focus-visible,
+.tt-glow:focus-within {
+  border-color: rgba(194, 112, 138, .55) !important;
+  box-shadow: var(--tt-focus-ring);
+  outline: none;
+}
+.tt-glow { transition: border-color var(--tt-hover) var(--tt-ease-out), box-shadow var(--tt-hover) var(--tt-ease-out); }
+
+/* ---- 区块进场:IntersectionObserver 给 .tt-reveal 加 .tt-in ----
+   无 JS 或 IO 不可用时维持可见,不藏内容。
+   v2：时长从 --tt-sheet(260ms) 换成 --tt-enter(520ms)。这是**展示类**动作,
+   260ms 里它还没舒展开就到位了 —— 全站「平」的最大一处就在这。 */
+.tt-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--tt-enter) var(--tt-ease-out),
+    transform var(--tt-enter) var(--tt-ease-out);
+  transition-delay: var(--tt-reveal-delay, 0ms);
+}
+.tt-reveal.tt-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---- 页面级柔和过渡:body 加 .tt-page 后,ready 时淡入 ---- */
+.tt-page { opacity: 0; transition: opacity var(--tt-ui) var(--tt-ease-out); }
+.tt-page.tt-page-ready { opacity: 1; }
+
+/* ---- 呼吸引光:氛围用,慢且微弱 ---- */
+@keyframes tt-breathe {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: 1; }
+}
+
+/* ---- reduced-motion:全局降级,保留状态可读性 ---- */
+@media (prefers-reduced-motion: reduce) {
+  /* v2：时长 token 直接归零。这样各页只要用的是 var(--tt-*),
+     不必各自再写一遍降级 —— 新增的 enter/scene/stagger 也自动跟着停。 */
+  :root {
+    --tt-press: 0ms; --tt-hover: 0ms; --tt-ui: 0ms; --tt-sheet: 0ms;
+    --tt-enter: 0ms; --tt-scene: 0ms; --tt-stagger: 0ms;
+  }
+  .tt-pressable, .tt-link::after, .tt-glow, .tt-page { transition: none; }
+  .tt-pressable, .tt-pressable:hover, .tt-pressable:active { transform: none; }
+  .tt-reveal { opacity: 1; transform: none; transition: none; }
+  .tt-link::after { transform: scaleX(1); }
+}

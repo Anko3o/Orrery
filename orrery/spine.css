@@ -1,0 +1,245 @@
+/* ---------- 书脊抽屉（9-06 粗版）----------
+   参考：安可找的堆叠侧边栏——每进一级开一张新面板，上一级不消失，压成一条竖排书脊贴左缘；
+   点书脊退回那一级。写了 display 就补 [hidden]，家规。 */
+.drawer{
+  position:fixed; z-index:6; top:0; right:0; bottom:0;
+  width:min(94vw,440px);
+  /* 9-08 安可：「我很讨厌渐变」——底色一整块平的，左缘一根粉线，别的装饰不要 */
+  background:var(--card-a);
+  border-left:1px solid rgba(var(--pink-rgb),.28);
+  box-shadow:-18px 0 48px rgba(0,0,0,.35);
+  backdrop-filter:blur(14px);
+  transform:translateX(0); transition:transform .38s cubic-bezier(.2,.8,.2,1);
+  color:var(--ink);
+}
+.drawer[hidden]{ display:block; transform:translateX(105%); pointer-events:none }
+.drawer-row{ position:absolute; inset:0; display:flex; align-items:stretch; overflow:hidden }
+.drawer-x{
+  position:absolute; top:10px; right:12px; z-index:2;
+  width:34px; height:34px; border-radius:50%;
+  border:1px solid var(--glass-line); background:var(--glass); color:var(--ink);
+  font-size:18px; line-height:1; cursor:pointer;
+}
+/* 每一级都是一个 .lvl；不是最顶层时压成书脊 */
+.lvl{
+  position:relative; flex:1 1 auto; min-width:0;
+  display:flex; flex-direction:column;
+  padding:54px 18px 18px 18px;
+  transition:flex-basis .38s cubic-bezier(.2,.8,.2,1), padding .38s, opacity .3s;
+  overflow:hidden;
+  animation:lvl-in .38s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes lvl-in{ from{ transform:translateX(60px); opacity:0 } to{ transform:none; opacity:1 } }
+.lvl.spined{
+  flex:0 0 40px; padding:0; cursor:pointer;
+  border-right:1px solid var(--glass-line);
+  background:rgba(var(--panel),.55);
+}
+.lvl.spined:hover{ background:rgba(var(--panel-on),.8) }
+.lvl.spined > *:not(.lvl-spine){ display:none }
+.lvl-spine{
+  display:none; position:absolute; inset:0; cursor:pointer;
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--ink-dim); padding:18px 0; text-align:right;
+  white-space:nowrap;
+}
+.lvl.spined .lvl-spine{ display:block }
+.lvl-head{
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  font-size:9.5px; letter-spacing:.22em; color:var(--ink-faint); text-transform:uppercase;
+}
+.lvl-head .lvl-back{
+  background:none; border:0; color:var(--ink-dim); cursor:pointer;
+  font:inherit; letter-spacing:.22em; padding:0;
+}
+.lvl-head .lvl-back:hover{ color:var(--pink) }
+.lvl-head .cnt{ margin-left:auto; color:var(--ink-faint) }
+.lvl-body{ flex:1 1 auto; overflow:auto; min-height:0; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(var(--pink-rgb),.35) transparent }
+.lvl{ will-change:flex-basis }
+.lvl.spined{ background:rgba(var(--panel),.6) }
+.lvl.spined .lvl-spine::after{ content:""; position:absolute; left:50%; bottom:12px; width:4px; height:4px; margin-left:-2px; border-radius:50%; background:var(--pink); opacity:.8; transform:rotate(180deg) }
+/* 菜单 / 列表行：01 序号 + 标题 + › */
+.lvl-item{
+  display:flex; align-items:baseline; gap:12px; width:100%;
+  background:none; border:0; border-bottom:1px solid rgba(var(--tint),.08);
+  color:var(--ink); text-align:left; cursor:pointer; font:inherit;
+  padding:12px 2px;
+}
+.lvl-item:hover, .lvl-item:focus-visible{ color:var(--pink); outline:none }
+.lvl-item .no{ font-size:9px; letter-spacing:.1em; color:var(--ink-faint); min-width:18px }
+.lvl-item .tt{ flex:1; font-size:15px; line-height:1.4 }
+.lvl.menu .lvl-item .tt{ font-size:22px; letter-spacing:.02em }
+.lvl-item .dt{ font-size:9.5px; letter-spacing:.06em; color:var(--ink-faint); white-space:nowrap }
+.lvl-item .wx{ font-size:11px; opacity:.85; min-width:14px; text-align:center }
+.lvl-item .wx:empty{ display:none }
+.lvl-item:active{ background:rgba(var(--pink-rgb),.06) }
+/* 9-08 安可：「查看桶的时候也有卡片分割」——列表级每一行是一张小卡，菜单级照旧是行 */
+.lvl.list .lvl-item{
+  margin:0 0 8px; padding:12px 12px; border-radius:12px;
+  background:var(--glass); border:1px solid var(--glass-line); border-bottom:1px solid var(--glass-line);
+  box-shadow:var(--glass-shadow);
+}
+.lvl.list .lvl-item:hover, .lvl.list .lvl-item:focus-visible{ border-color:rgba(var(--pink-rgb),.45) }
+.lvl.list .lvl-item:active{ background:rgba(var(--panel-on),.9) }
+.lvl.list .lvl-item .no{ min-width:20px }
+.lvl-detail .raw-links .lvl-item{ margin:0 0 6px; padding:10px 12px; border-radius:10px; background:var(--glass); border:1px solid var(--glass-line) }
+.lvl-item .ar{ color:var(--ink-faint); font-size:12px }
+.lvl-more{
+  display:block; margin:12px auto 0; background:none; border:0; cursor:pointer;
+  font:inherit; font-size:10px; letter-spacing:.22em; color:var(--pink);
+}
+.lvl-more[hidden]{ display:none }
+.lvl-q{
+  width:100%; margin:0 0 10px; padding:9px 2px; box-sizing:border-box;
+  background:none; border:0; border-bottom:1px solid rgba(var(--tint),.25);
+  color:var(--ink); font:inherit; font-size:15px; outline:none;
+}
+.lvl-q::placeholder{ color:var(--ink-faint); letter-spacing:.1em }
+/* 详情 */
+.lvl-detail h2{ margin:0 0 6px; font-size:19px; line-height:1.35; font-weight:600; color:var(--ink) }
+.lvl-detail .meta{ font-size:9.5px; letter-spacing:.14em; color:var(--ink-faint); margin-bottom:12px }
+.lvl-detail .tag{ display:inline-block; font-size:10px; padding:2px 8px; margin:0 6px 6px 0;
+  border:1px solid rgba(var(--tint),.25); border-radius:999px; color:rgba(var(--tint-ink),.9) }
+.lvl-detail .body{ font-size:13.5px; line-height:1.8; color:var(--ink-dim); white-space:pre-wrap; word-break:break-word }
+.lvl-detail .tag.weather{ background:rgba(var(--pink-rgb),.14); border-color:rgba(var(--pink-rgb),.35); color:var(--pink-soft) }
+.lvl-detail .tag.axis{ border-style:dashed }
+/* 9-09 心情栏：小字标签 + 一根横条，实色无渐变（安可 21:47 定的样式） */
+.lvl-detail .mood{ display:flex; align-items:center; gap:9px; margin:0 0 8px; font-size:10px; color:var(--ink-faint) }
+.lvl-detail .mood .mk{ width:26px; flex:none; letter-spacing:.06em }
+.lvl-detail .mood em{ font-style:normal; font-size:11.5px; color:var(--ink-dim) }
+.lvl-detail .mood em.none{ color:var(--ink-faint) }
+.lvl-detail .maxes{ display:grid; gap:7px; margin:0 0 10px }
+.lvl-detail .mrow{ display:flex; align-items:center; gap:9px; font-size:10px; color:var(--ink-faint) }
+.lvl-detail .mrow .mk{ width:26px; flex:none }
+.lvl-detail .mtrack{ flex:1; position:relative; height:3px; border-radius:3px; background:rgba(var(--tint),.14) }
+.lvl-detail .mtrack::before{ content:""; position:absolute; left:50%; top:-2px; width:1px; height:7px; background:rgba(var(--tint),.3) }
+.lvl-detail .mtrack b{ position:absolute; top:0; height:100%; border-radius:3px }
+.lvl-detail .mnum{ width:30px; flex:none; text-align:right; font-variant-numeric:tabular-nums }
+/* 为什么留 / 我的感受：和卡片同款两栏 */
+.lvl-detail .why, .lvl-detail .feel{
+  margin:12px 0 0; padding:9px 11px 9px 12px;
+  border-left:2px solid rgba(var(--tint),.28); background:rgba(var(--tint),.05); border-radius:0 8px 8px 0;
+}
+.lvl-detail .feel{ border-left-color:rgba(var(--pink-rgb),.55); background:rgba(var(--pink-rgb),.07) }
+.lvl-detail .lab{ display:block; margin:0 0 4px; font-size:9.5px; letter-spacing:.14em; color:var(--ink-faint) }
+.lvl-detail .feel .lab{ color:var(--pink-soft) }
+.lvl-detail .why p, .lvl-detail .feel p{ margin:0; font-size:12.5px; line-height:1.72; color:var(--ink-dim) }
+.lvl-detail .feel p + p{ margin-top:6px; padding-top:6px; border-top:1px dashed rgba(var(--pink-rgb),.25) }
+.lvl-detail .go{
+  margin-top:16px; padding:9px 14px; border-radius:999px; cursor:pointer;
+  border:1px solid rgba(var(--pink-rgb),.5); background:rgba(var(--pink-rgb),.12); color:var(--pink);
+  font:inherit; font-size:10.5px; letter-spacing:.18em;
+}
+.lvl-empty{ font-size:12px; color:var(--ink-faint); padding:8px 2px; letter-spacing:.06em }
+@media (max-width:760px){
+  .lvl{ padding:54px 14px 14px 14px }
+  .lvl.spined{ flex-basis:34px }
+}
+@media (prefers-reduced-motion:reduce){
+  .drawer, .lvl{ transition:none; animation:none }
+}
+
+/* ---------- 卡片的 ⋯（9-07）：编辑 / 遗忘 / 删除，平时只露一颗 ---------- */
+.card .more{
+  position:absolute; top:10px; right:44px;
+  width:28px; height:28px; border-radius:50%;
+  border:1px solid var(--glass-line); background:transparent; color:var(--ink-dim);
+  font-size:16px; line-height:1; cursor:pointer; letter-spacing:-.1em;
+}
+.card .more:hover, .card .more[aria-expanded="true"]{ color:var(--pink); border-color:rgba(var(--pink-rgb),.5) }
+.c-menu{
+  position:absolute; top:42px; right:12px; z-index:3;
+  display:flex; flex-direction:column; min-width:150px;
+  background:var(--card-a); border:1px solid var(--glass-line); border-radius:12px;
+  box-shadow:var(--glass-shadow); padding:6px; backdrop-filter:blur(12px);
+}
+.c-menu[hidden]{ display:none }
+.c-menu button{
+  display:flex; align-items:baseline; gap:6px;
+  background:none; border:0; color:var(--ink); text-align:left; cursor:pointer;
+  font:inherit; font-size:12.5px; padding:8px 10px; border-radius:8px;
+}
+.c-menu button small{ font-size:9.5px; color:var(--ink-faint); letter-spacing:.06em }
+.c-menu button:hover{ background:rgba(var(--panel-on),.9); color:var(--pink) }
+.c-menu button[data-act="delete"].armed{ color:var(--pink) }
+.c-login{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 10px }
+.c-login[hidden]{ display:none }
+.c-login p{ flex:1 0 100%; margin:0; font-size:10.5px; letter-spacing:.08em; color:var(--ink-faint) }
+.c-login input{
+  flex:1; min-width:0; font:inherit; font-size:13px; color:var(--ink);
+  background:rgba(var(--panel),.6); border:1px solid var(--glass-line); border-radius:8px; padding:7px 10px; outline:none;
+}
+.c-login input:focus{ border-color:rgba(var(--pink-rgb),.5) }
+.c-login button{
+  font:inherit; font-size:10.5px; letter-spacing:.16em; padding:7px 12px; border-radius:999px; cursor:pointer;
+  border:1px solid rgba(var(--pink-rgb),.5); background:rgba(var(--pink-rgb),.12); color:var(--pink);
+}
+.c-note{ flex:1 0 100%; font-size:10.5px; color:var(--pink) }
+.c-flash{ font-size:10.5px; letter-spacing:.08em; color:var(--pink); margin:0 0 8px }
+.c-flash[hidden]{ display:none }
+/* 编辑态：标题和正文原地变成框 */
+.card.editing h2, .card.editing .card-summary, .card.editing .orig{ display:none }
+.c-edit{ display:flex; flex-direction:column; gap:8px; margin:0 0 10px }
+.c-edit[hidden]{ display:none }
+.c-edit input, .c-edit textarea{
+  width:100%; box-sizing:border-box; font:inherit; color:var(--ink);
+  background:rgba(var(--panel),.6); border:1px solid var(--glass-line); border-radius:8px; padding:8px 10px; outline:none;
+}
+.c-edit input{ font-size:15px; font-weight:600 }
+.c-edit textarea{ font-size:12.5px; line-height:1.7; min-height:160px; resize:vertical }
+.c-edit input:focus, .c-edit textarea:focus{ border-color:rgba(var(--pink-rgb),.5) }
+.c-edit .row{ display:flex; gap:8px; justify-content:flex-end }
+.c-edit .row button{
+  font:inherit; font-size:10.5px; letter-spacing:.16em; padding:7px 14px; border-radius:999px; cursor:pointer;
+  border:1px solid var(--glass-line); background:transparent; color:var(--ink-dim);
+}
+.c-edit .row button.save{ border-color:rgba(var(--pink-rgb),.5); background:rgba(var(--pink-rgb),.12); color:var(--pink) }
+.card.forgotten h2{ opacity:.45; text-decoration:line-through; text-decoration-color:rgba(var(--pink-rgb),.6) }
+
+/* 家规：写了 display 的元素补 [hidden] */
+.side-toggle[hidden]{ display:none }
+
+/* ---- 列表的分签与排序（9-07，从旧 INDEX 搬进抽屉）---- */
+.lvl-sort{
+  background:none; border:1px solid var(--glass-line); border-radius:999px; cursor:pointer;
+  font:inherit; font-size:9px; letter-spacing:.16em; color:var(--ink-dim); padding:3px 9px; margin-left:auto;
+}
+.lvl-sort:hover{ color:var(--pink); border-color:rgba(var(--pink-rgb),.5) }
+.lvl-head .cnt{ margin-left:8px }
+.lvl-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px }
+.lvl-chips button{
+  background:rgba(var(--panel),.55); border:1px solid var(--glass-line); border-radius:999px; cursor:pointer;
+  font:inherit; font-size:11px; color:var(--ink-dim); padding:5px 10px; display:flex; gap:5px; align-items:baseline;
+}
+.lvl-chips button b{ font-weight:500; font-size:9.5px; color:var(--ink-faint) }
+.lvl-chips button[aria-pressed="true"]{ color:var(--pink); border-color:rgba(var(--pink-rgb),.5); background:rgba(var(--pink-rgb),.1) }
+.lvl-chips button[aria-pressed="true"] b{ color:var(--pink) }
+
+/* 9-07 话题块库 */
+.drawer .lvl-stat{font-size:11px;opacity:.65;margin:2px 0 8px;letter-spacing:.02em}
+.drawer .lvl-item.topic .tt{font-weight:500}
+.drawer .topic-h{font-size:16px;line-height:1.35;margin:0 0 6px}
+.drawer .body.summ{opacity:.85;margin:8px 0}
+.drawer pre.raw{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:13px;line-height:1.6;max-height:52vh;overflow:auto;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.06)}
+.drawer .pager{display:flex;gap:8px;margin:8px 0}
+.drawer .pager .pg,.drawer .blk-actions button{font:inherit;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit;cursor:pointer}
+.drawer .blk-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.drawer .blk-actions .del{border-color:rgba(255,120,120,.5)}
+.drawer .blk-edit{display:grid;gap:6px;margin-top:10px}
+.drawer .blk-edit[hidden]{display:none}
+.drawer .blk-edit label{display:grid;gap:3px;font-size:11px;opacity:.85}
+.drawer .blk-edit input,.drawer .blk-edit textarea{font:inherit;font-size:13px;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:inherit}
+.drawer .raw-links{margin-top:14px}
+
+/* 9-10 设置面板（安可：「开窗 breath 总是上限，但没有面板可以控制这些」） */
+.drawer .set-g{ margin:14px 0 6px }
+.drawer .set-row{ display:grid; grid-template-columns:1fr 92px; gap:2px 10px; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06) }
+.drawer .set-row .set-name{ font-size:13px }
+.drawer .set-row small{ grid-column:1 / -1; font-size:10.5px; color:var(--ink-faint); line-height:1.45 }
+.drawer .set-row input[type="number"]{ font:inherit; font-size:13px; padding:5px 7px; border-radius:6px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.05); color:inherit; width:100%; text-align:right }
+.drawer .set-row input[type="checkbox"]{ justify-self:end; width:18px; height:18px; accent-color:var(--pink) }
+.drawer .set-note{ font-size:11px; color:var(--ink-faint); align-self:center; margin-left:8px }
+.drawer .set-hint{ font-size:10.5px; color:var(--ink-faint); line-height:1.5; margin-top:8px }
+.drawer .set-login label{ display:block; font-size:12px; margin:8px 0 }
+.drawer .set-login input{ font:inherit; font-size:13px; padding:6px 8px; border-radius:6px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.05); color:inherit; width:100%; margin-top:4px }

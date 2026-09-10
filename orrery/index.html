@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d1220">
+<title>Memory Orrery · 记忆天仪</title>
+<link rel="stylesheet" href="./motion.css">
+<link rel="stylesheet" href="./styles.css?v=16">
+<link rel="stylesheet" href="./spine.css?v=10">
+</head>
+<body>
+
+<canvas id="sky" aria-label="Memory orrery: Anko at the center, each orbit a memory domain, each star a memory bucket"></canvas>
+
+<!-- 取景角标：四角的测量框 -->
+<div class="frame" aria-hidden="true">
+  <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+</div>
+
+<!-- 左上：身份与总账 -->
+<header class="hud hud-tl">
+  <div class="title">
+    <span class="eyebrow">OMBRE BRAIN · <b id="s-stamp">—</b></span>
+    <h1>MEMORY ORRERY</h1>
+  </div>
+  <dl class="stats">
+    <div><dt>MEMORIES</dt><dd id="s-nodes">—</dd></div>
+    <div><dt>ORBITS</dt><dd id="s-domains">—</dd></div>
+    <div><dt>ANCHORED</dt><dd id="s-anchors">—</dd></div>
+    <div class="warn"><dt>FADING</dt><dd id="s-fading">—</dd></div>
+  </dl>
+</header>
+
+<!-- 右上：找星 -->
+<div class="hud hud-tr">
+  <nav class="brain-switch" aria-label="Choose memory resident">
+    <span>RESIDENT</span>
+    <button type="button" data-brain="rime" aria-pressed="false">RIME</button>
+    <button type="button" data-brain="feylor" aria-pressed="false">FEYLOR</button>
+  </nav>
+  <!-- 8-26 安可：「搜索框短一点，留位置给侧边栏按钮」——LIST 从左下索引头再搬到这儿 -->
+  <div class="find-row">
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input id="q" type="search" placeholder="SEARCH" autocomplete="off" spellcheck="false">
+      <button id="qclear" type="button" hidden aria-label="Clear">×</button>
+    </label>
+    <!-- 9-07 01:33 安可「抽屉旁边有一个重复的查看桶按钮，合并」：旧 ▤ INDEX 收起（代码留着，抽屉里以后接它的记忆抽屉分签） -->
+    <button id="listbtn" class="side-toggle" type="button" aria-label="Toggle list view" aria-pressed="false" hidden>▤</button>
+    <!-- 9-06 书脊抽屉（安可找的堆叠侧边栏，先做粗版）-->
+    <button id="drawerbtn" class="side-toggle" type="button" aria-label="Open shelf drawer" aria-pressed="false">▥</button>
+  </div>
+  <output id="qhint" class="qhint" hidden></output>
+</div>
+
+<!-- 底部：缩放刻度尺 + 控件 -->
+<footer class="hud hud-b">
+  <div class="ruler" aria-hidden="true">
+    <span class="ruler-lab">SCALE</span>
+    <i class="ruler-track"><b id="ruler-fill"></b></i>
+    <span class="ruler-val" id="ruler-val">1.00×</span>
+  </div>
+  <p class="hint" id="zhint">DRAG · ZOOM · CLICK A STAR</p>
+  <div class="tools">
+    <button id="zoomout" type="button" aria-label="Zoom out">−</button>
+    <button id="zoomin" type="button" aria-label="Zoom in">＋</button>
+    <button id="reset" type="button">RESET</button>
+    <!-- LIST 8-26 两连搬：先进左下索引头，再依安可「搜索框短一点」落定搜索框右侧 ▤ -->
+    <button id="depth" type="button" aria-label="Toggle spatial depth" aria-pressed="false">2·5D</button>
+    <button id="spin" type="button" aria-pressed="true">SPIN <b>ON</b></button>
+    <button id="theme" class="pick" type="button" aria-pressed="false" aria-label="Toggle day or night">
+      <i class="ico">☾</i><span class="lab">NIGHT</span>
+    </button>
+    <button id="ground" class="pick" type="button" hidden aria-label="Change daytime ground">
+      <i class="ico">◍</i><span class="lab">WASH</span>
+    </button>
+  </div>
+</footer>
+
+<!-- 列表视图：同一批星换一种读法（安可 8-17 点单） -->
+<section class="listview" id="listview" hidden aria-label="Memory list view">
+  <header class="lv-head">
+    <span class="lv-title">INDEX</span>
+    <span class="lv-count" id="lv-count">—</span>
+    <button class="lv-sort" id="lv-sort" type="button">NEW→OLD</button>
+    <button class="lv-close" id="lv-close" type="button" aria-label="Close list">×</button>
+  </header>
+  <!-- 记忆抽屉（8-26 安可：「在天仪里面并入」）：同一批星按抽屉分签，点行选星照旧 -->
+  <nav class="lv-boxes" id="lv-boxes" aria-label="记忆抽屉"></nav>
+  <ol class="lv-list" id="lv-list"></ol>
+</section>
+
+<!-- 选中一颗星之后的卡片 -->
+<aside class="card" id="card" hidden aria-live="polite">
+  <button class="close" id="cardclose" type="button" aria-label="Close">×</button>
+  <!-- 9-07 安可：「桶没有给人类用的编辑/遗忘/删除键，全塞又丑」——一颗 ⋯，点开才有三样 -->
+  <button class="more" id="cardmore" type="button" aria-label="More actions" aria-expanded="false">⋯</button>
+  <div class="c-menu" id="c-menu" hidden>
+    <button type="button" data-act="edit">✎ 编辑</button>
+    <button type="button" data-act="forget">◌ 遗忘 <small>变淡不删</small></button>
+    <button type="button" data-act="delete">✕ 删除 <small>再点一次确认</small></button>
+  </div>
+  <form class="c-login" id="c-login" hidden autocomplete="off">
+    <p>改字要先跟 OB 打个招呼</p>
+    <input type="password" id="c-pass" placeholder="OB 密码" autocomplete="current-password">
+    <button type="submit">进来</button>
+    <span class="c-note" id="c-loginnote"></span>
+  </form>
+  <div class="c-flash" id="c-flash" hidden></div>
+  <div class="card-kind"><span id="c-kind"></span><span id="c-anchor" class="anchor-tag" hidden>⚓ ANCHORED</span></div>
+  <h2 id="c-title"></h2>
+  <p class="card-summary" id="c-summary"></p>
+  <!-- 9-08 分流（安可：「我的感受能不能单独一栏」）：为什么留 / 我的感受 从正文里拆出来各占一栏 -->
+  <div class="card-why" id="c-why" hidden><span class="cw-label">为什么留</span><p id="c-whytext"></p></div>
+  <div class="card-feel" id="c-feel" hidden><span class="cw-label">我的感受</span><div id="c-feellist"></div></div>
+  <!-- 原文档案（8-17 原文永存计划）：摘要只是索引，原话在这里翻回来 -->
+  <div class="orig" id="c-orig" hidden>
+    <button class="orig-btn" id="c-origbtn" type="button" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><path d="M10 12h5M10 16h5"/></svg>
+      <span id="c-origlab">展开原文</span>
+    </button>
+    <div class="orig-body" id="c-origbody" hidden></div>
+  </div>
+  <ul class="card-tags" id="c-tags"></ul>
+  <dl class="card-meta">
+    <div><dt>DOMAIN</dt><dd id="c-domain"></dd></div>
+    <div><dt>IMPORTANCE</dt><dd id="c-imp"></dd></div>
+    <div><dt>RECALLS</dt><dd id="c-count"></dd></div>
+    <div class="with-moon">
+      <dt>CLARITY</dt>
+      <dd><canvas id="c-moon" width="34" height="34" aria-hidden="true"></canvas><span id="c-clarity"></span></dd>
+    </div>
+  </dl>
+  <!-- 9-09 情绪驱动（安可：「VAL/ARO 我们家早就撤销了」）：两根条换成那天的心情。
+       21:47 追加：不做胶囊、不做渐变——沿用 VAL/ARO 那种「左边小字 + 一根横条」。 -->
+  <div class="card-mood" id="c-mood">
+    <div class="mood-wx"><span class="mood-lab">心情</span><em id="m-weather">—</em></div>
+    <div class="mood-axes" id="m-axes"></div>
+  </div>
+  <p class="card-time" id="c-time"></p>
+</aside>
+
+<!-- 记忆生长的声波：每天写下了多少段 -->
+<div class="timeline" id="timeline">
+  <span class="tl-lab" id="tl-from">—</span>
+  <canvas id="tl-wave" width="1600" height="72" aria-label="Memory growth waveform: x axis is date, peaks are memories written that day"></canvas>
+  <span class="tl-lab" id="tl-to">—</span>
+</div>
+
+<!-- 领域索引（点一下飞过去） -->
+<nav class="legend" id="legend" aria-label="Memory domains">
+  <div class="legend-head">
+    <span>ORBIT INDEX</span>
+    <button id="legend-more" type="button">ALL 36</button>
+  </div>
+  <ol class="legend-list" id="legend-list"></ol>
+</nav>
+
+<!-- 9-09 星色图例：一行小字，实色小圆点（安可不要渐变） -->
+<div class="moodkey" id="moodkey" aria-label="星星颜色对照"></div>
+
+<div class="loading" id="loading">LOADING</div>
+
+<!-- 想放个回主页的键就在这儿：<a class="back" href="/">‹ HOME</a> -->
+
+<!-- 书脊抽屉：右侧推入，每进一级开一张面板，上一级压成书脊叠在左缘 -->
+<div class="drawer" id="drawer" hidden aria-label="Memory shelf drawer">
+  <div class="drawer-row" id="drawer-row"></div>
+  <button class="drawer-x" id="drawer-x" type="button" aria-label="Close drawer">×</button>
+</div>
+<script src="./app.js?v=24"></script>
+<script src="./spine.js?v=7"></script>
+<script src="./edit.js?v=2"></script>
+</body>
+</html>

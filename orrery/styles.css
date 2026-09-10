@@ -1,0 +1,836 @@
+/* 记忆天仪 · 兔牙家夜空配色（粉调的夜，不是冷黑）
+   家里第六次提醒自己：凡是写了 display 的元素，都要补 [hidden]{display:none} */
+
+:root{
+  --ink:#eef0f6;            /* 灰白字 */
+  --ink-dim:#a8acb8;
+  --ink-faint:#71747f;
+  --pink:#ff3d8f;           /* 全场唯一的高饱和：焦点色 */
+  --pink-soft:#e6e9f2;
+  --plum:#4a4550;
+  --mint:#aab0be;
+  --glass:rgba(var(--panel),.66);
+  --glass-line:rgba(226,230,242,.13);
+  --glass-shadow:0 10px 34px rgba(0,0,0,.5);
+  --pad:clamp(14px,2.4vw,26px);
+
+  --bg:#0e0d11;
+  --pink-rgb:255,61,143;
+  --tint:255,205,232;        /* 装饰用的粉：细边、tag 底、分隔点 */
+  --tint-ink:201,174,190;    /* 带粉的次级字 */
+  --panel:28,26,33;          /* 玻璃面板的底 */
+  --panel-on:48,29,42;       /* 被按下的那一枚 */
+  --card-a:rgba(32,30,38,.93);
+  --card-b:rgba(20,19,24,.95);
+  --bar-from:#6d7180;
+  --hot-ink:#ffd0e4;         /* 锚定标签上的字 */
+  color-scheme:dark;
+}
+
+/* ---------- 白天：一张摊开的星图纸 ----------
+   不是把夜里反色（那样越清楚的记忆会越白、越看不见），
+   是换一张纸：墨越浓 = 记得越清楚，语义原地成立。
+   面板从「深玻璃」变成「压在纸上的半透明描图片」。 */
+:root[data-theme="day"]{
+  --ink:#2c303c;
+  --ink-dim:#5d6070;
+  --ink-faint:#8a8790;
+  --pink:#e01f74;            /* 白底会把 #ff3d8f 冲淡，压深一档 */
+  --pink-rgb:224,31,116;
+  --pink-soft:#33262e;       /* 夜里这格是「更亮的字」，白天要变成「更浓的字」 */
+  --plum:#cdc3ba;
+  --mint:#7d7a80;
+  --glass:rgba(255,253,250,.74);
+  --glass-line:rgba(90,74,66,.18);
+  --glass-shadow:0 10px 30px rgba(122,100,86,.13);
+
+  --bg:#f0eae3;
+  --tint:122,100,88;         /* 白天的「装饰色」是纸上的旧墨，不是粉 */
+  --tint-ink:124,112,108;
+  --panel:255,253,250;
+  --panel-on:255,234,243;
+  --card-a:rgba(255,253,250,.95);
+  --card-b:rgba(250,245,239,.96);
+  --bar-from:#cec6bd;
+  --hot-ink:#8c1148;
+  color-scheme:light;
+}
+/* 夜里靠辉光把标题托起来，纸上没有辉光这回事 */
+:root[data-theme="day"] .title h1{ text-shadow:none }
+:root[data-theme="day"] .search button{ color:var(--ink-dim) }
+:root[data-theme="day"] .brain-switch button{ background:rgba(var(--panel),.66) }
+:root[data-theme="day"] .brain-switch button[aria-pressed="true"],
+:root[data-theme="day"] #depth.on{
+  background:rgba(var(--panel-on),.92);
+  border-color:rgba(var(--pink-rgb),.5);
+}
+:root[data-theme="day"] #depth.on{ box-shadow:0 0 18px rgba(var(--pink-rgb),.12) }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  overflow:hidden;                 /* 天空自己会动，页面不滚 */
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"tt-rounded","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;
+}
+
+#sky{
+  position:fixed; inset:0;
+  width:100%; height:100%;
+  display:block;
+  touch-action:none;               /* 手势全部自己接管 */
+  cursor:grab;
+}
+#sky.dragging{cursor:grabbing}
+#sky.pointing{cursor:pointer}
+
+/* ---------- HUD 通用 ---------- */
+.hud{
+  position:fixed;
+  z-index:3;
+  pointer-events:none;             /* 面板本身不挡拖动，只有控件收事件 */
+}
+.hud > *{pointer-events:auto}
+
+.hud-tl{ top:var(--pad); left:var(--pad); max-width:min(54vw,470px) }
+.hud-tr{ top:var(--pad); right:var(--pad); width:min(42vw,270px) }
+.hud-b {
+  left:50%; transform:translateX(-50%);
+  bottom:calc(var(--pad) + env(safe-area-inset-bottom,0px));
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  width:min(92vw,420px);
+}
+
+/* ---------- 标题与总账 ---------- */
+.eyebrow{
+  display:block;
+  font-size:10px; letter-spacing:.22em;
+  color:var(--ink-faint); text-transform:uppercase;
+  margin-bottom:6px;
+}
+.title h1{
+  margin:0;
+  font-size:clamp(21px,3.4vw,30px);
+  font-weight:600; letter-spacing:.04em;
+  color:var(--ink);
+  text-shadow:0 0 24px rgba(var(--pink-rgb),.28);
+}
+.title .sub{
+  margin:6px 0 0;
+  font-size:11.5px; line-height:1.6;
+  color:var(--ink-dim);
+}
+.stats{
+  display:flex; flex-wrap:wrap; align-items:baseline;
+  gap:0; margin:11px 0 0;
+}
+.stats > div{ display:flex; align-items:baseline; gap:4px; margin:0 }
+.stats > div + div::before{
+  content:"·"; margin:0 7px; color:rgba(var(--tint-ink),.32);
+}
+.stats{ white-space:nowrap }
+.stats dt{
+  font-size:8.5px; letter-spacing:.14em;
+  color:var(--ink-faint);
+}
+.stats dd{
+  margin:0;
+  font-size:13px; font-variant-numeric:tabular-nums;
+  color:var(--pink-soft);
+}
+.stats .warn{
+  cursor:pointer;
+  border-radius:7px;
+  padding:2px 5px; margin:-2px -5px;
+  transition:background var(--tt-ui,.22s) ease;
+}
+.stats .warn:hover{ background:rgba(var(--pink-rgb),.1) }
+.stats .warn dd{ color:var(--pink) }
+.stats .warn.on{ background:rgba(var(--pink-rgb),.14) }
+.stats .warn.on dt{ color:var(--pink) }
+
+/* ---------- 同一座天仪，两位住户 ---------- */
+.brain-switch{
+  display:flex; align-items:center; justify-content:flex-end; gap:5px;
+  margin:0 0 7px;
+  color:var(--ink-faint);
+  font-size:8px; letter-spacing:.14em;
+}
+.brain-switch span{ margin-right:3px }
+.brain-switch button{
+  min-height:25px; padding:4px 9px;
+  border:1px solid var(--glass-line); border-radius:999px;
+  background:rgba(var(--panel),.52);
+  color:var(--ink-faint);
+  font:inherit; letter-spacing:.12em;
+  cursor:pointer;
+  transition:color var(--tt-ui,.22s) ease,
+             border-color var(--tt-ui,.22s) ease,
+             background var(--tt-ui,.22s) ease;
+}
+.brain-switch button:hover{ color:var(--ink) }
+.brain-switch button[aria-pressed="true"]{
+  color:var(--pink-soft);
+  border-color:rgba(var(--pink-rgb),.42);
+  background:rgba(var(--panel-on),.76);
+}
+.brain-switch button:focus-visible{
+  outline:2px solid rgba(204,239,235,.42); outline-offset:2px;
+}
+
+/* ---------- 搜索 ---------- */
+.search{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px;
+  border-radius:14px;
+  background:var(--glass);
+  border:1px solid var(--glass-line);
+  box-shadow:var(--glass-shadow);
+  backdrop-filter:blur(9px);
+  transition:border-color var(--tt-ui,.22s) var(--tt-ease-out,ease),
+             transform var(--tt-ui,.22s) var(--tt-ease-out,ease);
+}
+.search:focus-within{
+  border-color:rgba(var(--pink-rgb),.5);
+  transform:translateY(-1px);
+}
+.search svg{
+  width:15px; height:15px; flex:none;
+  fill:none; stroke:var(--ink-faint); stroke-width:1.7; stroke-linecap:round;
+}
+.search input{
+  flex:1; min-width:0;
+  background:none; border:0; outline:none;
+  color:var(--ink); font:inherit; font-size:13px;
+}
+.search input::placeholder{ color:var(--ink-faint) }
+.search button{
+  flex:none;
+  width:20px; height:20px; padding:0;
+  border:0; border-radius:50%;
+  background:rgba(var(--tint),.14);
+  color:var(--ink-dim); font-size:14px; line-height:1;
+  cursor:pointer;
+}
+.search button[hidden]{ display:none }
+.qhint{
+  display:block;
+  margin-top:8px; padding:6px 10px;
+  border-radius:10px;
+  background:var(--glass);
+  border:1px solid var(--glass-line);
+  font-size:11px; color:var(--ink-dim);
+  text-align:right;
+}
+.qhint[hidden]{ display:none }
+
+/* ---------- 底部提示与工具 ---------- */
+.hint{
+  display:none;
+  margin:0;
+  font-size:11px; color:var(--ink-faint);
+  text-align:center; letter-spacing:.02em;
+  transition:opacity var(--tt-ui,.22s) ease;
+}
+.tools{ display:flex; gap:7px }
+.tools button{
+  padding:6px 11px;
+  border-radius:11px;
+  border:1px solid var(--glass-line);
+  background:var(--glass);
+  backdrop-filter:blur(9px);
+  color:var(--ink-dim);
+  font:inherit; font-size:12px;
+  cursor:pointer;
+  transition:transform var(--tt-press,.12s) var(--tt-ease-press,ease),
+             color var(--tt-ui,.22s) ease, border-color var(--tt-ui,.22s) ease;
+}
+.tools button:hover{ color:var(--ink); border-color:rgba(var(--tint),.32) }
+.tools button:active{ transform:scale(.93) }
+.tools button b{ color:var(--pink); font-weight:600 }
+.tools button:disabled{ opacity:.38; cursor:not-allowed; transform:none }
+
+/* 主题与底纹：图标常驻，字在小屏让位。
+   家里第七次 —— 写了 display 的元素，必须自己补一条 [hidden] */
+.tools button.pick{ display:inline-flex; align-items:center; gap:5px }
+.tools button.pick[hidden]{ display:none }
+.tools .ico{ font-style:normal; font-size:12px; line-height:1 }
+#depth.on{
+  color:var(--pink-soft);
+  border-color:rgba(var(--pink-rgb),.42);
+  background:rgba(var(--panel-on),.76);
+  box-shadow:0 0 22px rgba(var(--pink-rgb),.1), inset 0 0 0 1px rgba(var(--tint),.035);
+}
+
+/* ---------- 选中卡片 ---------- */
+.card{
+  position:fixed; z-index:4;
+  right:var(--pad);
+  top:50%; transform:translateY(-50%);
+  width:min(34vw,330px);
+  max-height:min(74vh,560px);
+  overflow-y:auto; overscroll-behavior:contain;
+  padding:20px 20px 18px;
+  border-radius:20px;
+  background:linear-gradient(168deg,var(--card-a),var(--card-b));
+  border:1px solid var(--glass-line);
+  box-shadow:var(--glass-shadow);
+  backdrop-filter:blur(16px);
+  animation:cardIn var(--tt-enter,.52s) var(--tt-ease-out,ease) both;
+}
+.card[hidden]{ display:none }
+@keyframes cardIn{
+  from{ opacity:0; transform:translateY(-50%) translateX(14px) }
+  to  { opacity:1; transform:translateY(-50%) translateX(0) }
+}
+.card .close{
+  position:absolute; top:12px; right:12px;
+  width:26px; height:26px; padding:0;
+  border:0; border-radius:50%;
+  background:rgba(var(--tint),.1);
+  color:var(--ink-dim); font-size:16px; line-height:1;
+  cursor:pointer;
+}
+.card-kind{
+  display:flex; align-items:center; gap:8px;
+  font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-faint);
+}
+.anchor-tag{
+  padding:2px 7px; border-radius:20px;
+  background:rgba(var(--pink-rgb),.18);
+  color:var(--hot-ink); letter-spacing:.06em;
+}
+.anchor-tag[hidden]{ display:none }
+.card h2{
+  margin:9px 0 0;
+  font-size:18px; font-weight:600; line-height:1.42;
+  color:var(--ink);
+  padding-right:22px;
+}
+.card-summary{
+  margin:11px 0 0;
+  font-size:12.5px; line-height:1.78;
+  color:var(--ink-dim);
+}
+/* 9-08 分流：为什么留 / 我的感受，各占一栏。感受那栏带一点粉，和轴标签同源 */
+.card-why,.card-feel{
+  margin:12px 0 0; padding:9px 11px 9px 12px;
+  border-left:2px solid rgba(var(--tint),.28);
+  background:rgba(var(--tint),.05);
+  border-radius:0 8px 8px 0;
+}
+.card-feel{
+  border-left-color:rgba(var(--pink-rgb),.55);
+  background:rgba(var(--pink-rgb),.07);
+}
+.card-why[hidden],.card-feel[hidden]{ display:none }
+.cw-label{
+  display:block; margin:0 0 4px;
+  font-size:9.5px; letter-spacing:.14em; color:var(--ink-faint);
+}
+.card-feel .cw-label{ color:var(--hot-ink) }
+.card-why p,.card-feel p{
+  margin:0; font-size:12.5px; line-height:1.72; color:var(--ink-dim);
+}
+.card-feel p + p{ margin-top:6px; padding-top:6px; border-top:1px dashed rgba(var(--pink-rgb),.25) }
+.card-tags{
+  display:flex; flex-wrap:wrap; gap:5px;
+  margin:13px 0 0; padding:0; list-style:none;
+}
+.card-tags li{
+  padding:3px 9px;
+  border-radius:20px;
+  background:rgba(var(--tint),.09);
+  border:1px solid rgba(var(--tint),.12);
+  font-size:10.5px; color:var(--ink-dim);
+}
+.card-tags li.weather{
+  background:rgba(var(--pink-rgb),.14); border-color:rgba(var(--pink-rgb),.35); color:var(--hot-ink);
+}
+.card-tags li.axis{ border-style:dashed }
+.card-meta{
+  display:grid; grid-template-columns:repeat(2,1fr);
+  gap:11px 14px;
+  margin:16px 0 0;
+  padding-top:14px;
+  border-top:1px solid rgba(var(--tint),.12);
+}
+.card-meta > div{ margin:0 }
+.card-meta dt{ font-size:9.5px; letter-spacing:.12em; color:var(--ink-faint) }
+.card-meta dd{
+  margin:2px 0 0;
+  font-size:14px; font-variant-numeric:tabular-nums;
+  color:var(--pink-soft);
+}
+.card-meta .with-moon dd{ display:flex; align-items:center; gap:6px }
+.card-meta .with-moon canvas{ width:17px; height:17px; flex:none }
+/* ---------- 9-09 心情栏：VAL/ARO 两根条退休，换成那天的心情 ----------
+   安可 21:47：「胶囊太多了影响观感，不喜欢胶囊和渐变」——
+   所以沿用 VAL/ARO 的样式：左边一截小字标签，右边一根横条，实色，无渐变。
+   轴的条从中点起步，正的往右、负的往左，长度按幅度（满格 12）。 */
+.card-mood{ margin:15px 0 0; display:grid; gap:8px }
+.mood-wx{ display:flex; align-items:center; gap:9px; font-size:10px; color:var(--ink-faint) }
+.mood-lab{ width:26px; flex:none; letter-spacing:.06em }
+.mood-wx em{ font-style:normal; font-size:11.5px; color:var(--ink-dim) }
+.mood-wx em.none{ color:var(--ink-faint) }
+.mood-axes{ display:grid; gap:7px }
+.mood-row{ display:flex; align-items:center; gap:9px; font-size:10px; color:var(--ink-faint) }
+.mood-row .mood-name{ width:26px; flex:none }
+.mood-row .mood-track{
+  flex:1; position:relative; height:3px; border-radius:3px;
+  background:rgba(var(--tint),.12);
+}
+/* 中点那根竖线：条往哪边跑一眼看得出来 */
+.mood-row .mood-track::before{
+  content:""; position:absolute; left:50%; top:-2px;
+  width:1px; height:7px; background:rgba(var(--tint),.28);
+}
+.mood-row .mood-fill{
+  position:absolute; top:0; height:100%; border-radius:3px;
+  transition:width var(--tt-enter,.52s) var(--tt-ease-out,ease);
+}
+.mood-row .mood-num{ width:30px; flex:none; text-align:right; font-variant-numeric:tabular-nums }
+
+/* ---------- 角落图例：一行小字＋实色圆点 ---------- */
+.moodkey{
+  position:fixed; right:12px; bottom:96px; z-index:4;
+  transition:opacity .3s ease;
+  display:flex; flex-wrap:wrap; gap:4px 10px; max-width:min(56vw,420px);
+  font-size:9.5px; letter-spacing:.04em; color:var(--ink-faint);
+  pointer-events:none;
+}
+body.carded .moodkey, body.touring .moodkey, body.bare .moodkey{ opacity:0 }
+.moodkey i{
+  display:inline-flex; align-items:center; gap:4px; font-style:normal;
+}
+.moodkey b{
+  width:6px; height:6px; border-radius:50%; display:block; flex:none;
+}
+@media (max-width:720px){
+  .moodkey{ right:10px; bottom:118px; max-width:76vw; gap:3px 8px; font-size:9px }
+}
+
+.card-bars{ margin:15px 0 0; display:grid; gap:8px }
+.bar{ display:flex; align-items:center; gap:9px; font-size:10px; color:var(--ink-faint) }
+.bar span{ width:26px; flex:none }
+.bar i{
+  flex:1; height:3px; border-radius:3px;
+  background:rgba(var(--tint),.12);
+  overflow:hidden;
+}
+.bar b{
+  display:block; height:100%;
+  border-radius:3px;
+  background:linear-gradient(90deg,var(--bar-from),var(--ink));
+  transition:width var(--tt-enter,.52s) var(--tt-ease-out,ease);
+}
+.card-time{
+  margin:14px 0 0;
+  font-size:10.5px; line-height:1.7; color:var(--ink-faint);
+}
+
+/* ---------- 取景角标：整页是一张被丈量的图 ---------- */
+.frame{ position:fixed; inset:0; z-index:2; pointer-events:none }
+.frame .c{
+  position:absolute;
+  width:26px; height:26px;
+  border:1px solid rgba(var(--tint),.22);
+}
+.frame .tl{ top:12px; left:12px; border-right:0; border-bottom:0 }
+.frame .tr{ top:12px; right:12px; border-left:0; border-bottom:0 }
+.frame .bl{ bottom:12px; left:12px; border-right:0; border-top:0 }
+.frame .br{ bottom:12px; right:12px; border-left:0; border-top:0 }
+
+/* ---------- 左侧竖排标题：粗字与细线的对比 ---------- */
+.spine{
+  position:fixed; z-index:2;
+  left:calc(var(--pad) - 4px);
+  top:24%; transform:translateY(-24%);
+  display:flex; align-items:center; gap:9px;
+  writing-mode:vertical-rl;
+  pointer-events:none;
+  user-select:none;
+}
+.spine-cn{
+  font-size:clamp(24px,3.4vw,40px);
+  font-weight:600;
+  letter-spacing:.2em;
+  color:rgba(var(--tint),.09);
+  line-height:1;
+}
+.spine-en{
+  font-size:9.5px; letter-spacing:.42em;
+  color:rgba(var(--tint),.2);
+}
+
+/* ---------- 底部缩放刻度尺 ---------- */
+.ruler{
+  display:flex; align-items:center; gap:9px;
+  width:min(280px,62vw);
+  font-size:8.5px; letter-spacing:.2em;
+  color:var(--ink-faint);
+}
+.ruler-track{
+  flex:1; height:1px;
+  background:rgba(var(--tint),.16);
+  position:relative;
+}
+.ruler-track b{
+  position:absolute; left:0; top:-2px;
+  height:5px; width:20%;
+  background:rgba(var(--pink-rgb),.7);
+  transition:width var(--tt-ui,.22s) linear;
+}
+.ruler-val{ font-variant-numeric:tabular-nums; letter-spacing:.05em }
+
+/* ---------- 记忆生长的声波 ---------- */
+.timeline{
+  position:fixed; z-index:2;
+  left:var(--pad);
+  bottom:calc(var(--pad) + env(safe-area-inset-bottom,0px));
+  width:min(34vw,300px);
+  display:flex; align-items:flex-end; gap:7px;
+  pointer-events:none;
+}
+.timeline canvas{ flex:1; min-width:0; height:20px }
+.tl-lab{
+  font-size:7.5px; letter-spacing:.1em;
+  color:rgba(var(--tint-ink),.45);
+  padding-bottom:5px;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------- 遗忘刻度：一排月相 ---------- */
+.phases{
+  display:none;
+  position:fixed; z-index:3;
+  right:var(--pad);
+  bottom:calc(var(--pad) + 92px + env(safe-area-inset-bottom,0px));
+  display:flex; flex-direction:column; align-items:flex-end; gap:3px;
+  pointer-events:none;
+}
+.phases-lab{
+  font-size:8.5px; letter-spacing:.2em;
+  color:var(--ink-faint);
+}
+.phases canvas{ width:180px; height:17px }
+.phases-note{ font-size:8.5px; color:rgba(var(--tint-ink),.4) }
+
+/* ---------- 领域索引：天文图式的名录，不是标签云 ---------- */
+.legend{
+  position:fixed; z-index:3;
+  left:var(--pad);
+  bottom:calc(var(--pad) + 44px + env(safe-area-inset-bottom,0px));
+  width:min(30vw,196px);
+}
+.legend-head{
+  display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  padding:5px 11px;
+  border:1px solid var(--glass-line); border-radius:18px;
+  background:var(--glass);
+  backdrop-filter:blur(9px);
+  font-size:8.5px; letter-spacing:.18em;
+  color:var(--ink-faint);
+}
+.legend.open .legend-head{ border-radius:13px 13px 0 0 }
+.legend-list{ display:none }
+.legend.open .legend-list{ display:block }
+.legend-head button{
+  border:0; background:none; padding:0;
+  color:rgba(var(--pink-rgb),.7);
+  font:inherit; font-size:8.5px; letter-spacing:.12em;
+  cursor:pointer;
+}
+.legend-list{
+  list-style:none; margin:0;
+  padding:6px 8px;
+  border:1px solid var(--glass-line); border-top:0;
+  border-radius:0 0 13px 13px;
+  background:var(--glass);
+  backdrop-filter:blur(9px);
+  max-height:min(38vh,300px);
+  overflow-y:auto; overscroll-behavior:contain;
+  scrollbar-width:thin;
+}
+.legend-list::-webkit-scrollbar{ width:2px }
+.legend-list::-webkit-scrollbar-thumb{ background:rgba(var(--tint),.2) }
+.legend-list li{ margin:0 }
+.legend-list button{
+  display:flex; align-items:baseline; gap:7px;
+  width:100%; padding:3px 4px;
+  border:0; border-radius:4px;
+  background:none;
+  color:var(--ink-faint);
+  font:inherit; font-size:11px;
+  text-align:left; cursor:pointer;
+  transition:color var(--tt-ui,.22s) ease, background var(--tt-ui,.22s) ease;
+}
+.legend-list button:hover{ color:var(--ink); background:rgba(var(--tint),.06) }
+.legend-list button.on{ color:var(--pink-soft); background:rgba(var(--pink-rgb),.1) }
+.legend-list .no{
+  font-size:8px; letter-spacing:.08em;
+  color:rgba(var(--tint-ink),.38);
+  font-variant-numeric:tabular-nums;
+  width:16px; flex:none;
+}
+.legend-list .nm{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.legend-list .ct{
+  font-size:9px; font-variant-numeric:tabular-nums;
+  color:rgba(var(--tint-ink),.45);
+}
+
+/* ---------- 杂项 ---------- */
+.back{
+  position:fixed; z-index:3;
+  right:var(--pad);
+  bottom:calc(var(--pad) + env(safe-area-inset-bottom,0px));
+  padding:7px 13px;
+  border-radius:20px;
+  background:var(--glass);
+  border:1px solid var(--glass-line);
+  color:var(--ink-dim);
+  font-size:11.5px; text-decoration:none;
+  backdrop-filter:blur(9px);
+  transition:color var(--tt-ui,.22s) ease;
+}
+.back:hover{ color:var(--ink) }
+
+.loading{
+  position:fixed; inset:0; z-index:9;
+  display:grid; place-items:center;
+  background:var(--bg);
+  color:var(--ink-faint); font-size:12px; letter-spacing:.16em;
+  transition:opacity var(--tt-scene,.88s) var(--tt-ease-out,ease);
+}
+.loading[hidden]{ display:none }
+.loading.gone{ opacity:0; pointer-events:none }
+
+/* ---------- 手机：不是等比缩小，是按场景裁功能 ---------- */
+@media (max-width:760px){
+  :root{ --pad:14px }
+
+  /* 顶部一条：返回 · 标题 · 统计压成一行 */
+  .hud-tl{ max-width:calc(100vw - 28px); left:var(--pad); top:var(--pad) }
+  .title .sub{ display:none }
+  .eyebrow{ font-size:8.5px; margin-bottom:3px }
+  .eyebrow b{ display:none }
+  .title h1{ font-size:19px }
+  .stats{
+    display:flex; gap:0; margin:8px 0 0;
+    font-size:10px;
+  }
+  .stats > div{ display:flex; align-items:baseline; gap:3px }
+  .stats > div + div::before{
+    content:"·"; margin:0 6px; color:rgba(var(--tint-ink),.3);
+  }
+  .stats dt{ font-size:8.5px; letter-spacing:.04em }
+  .stats dd{ font-size:12px }
+
+  /* 搜索退到第二行，全宽；住户切换收成 HALL 左边的一颗目标按钮。 */
+  .hud-tr{
+    top:calc(var(--pad) + 74px); left:var(--pad); right:var(--pad);
+    width:auto;
+  }
+  .brain-switch{
+    position:fixed; z-index:4;
+    top:var(--pad); right:98px;
+    margin:0;
+  }
+  .brain-switch span{ display:none }
+  .brain-switch button{
+    width:78px; height:30px; min-height:30px; padding:0;
+    color:var(--pink-soft);
+    border-color:rgba(var(--pink-rgb),.32);
+    background:rgba(var(--panel),.72);
+  }
+  .brain-switch button[aria-pressed="true"]{ display:none }
+  .brain-switch button:not([aria-pressed="true"])::before{ content:"↔ "; color:var(--pink) }
+  .qhint{ text-align:left }
+
+  /* 遗忘刻度在小屏是噪音：卡片里那颗月亮已经说清楚了 */
+  .phases{ display:none }
+  .timeline{ display:none }
+  .spine{ display:none }
+  .frame .c{ width:16px; height:16px }
+
+  .card{
+    right:0; left:0; top:auto; bottom:0;
+    width:auto; max-height:58vh;
+    transform:none;
+    border-radius:22px 22px 0 0;
+    padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));
+    animation-name:sheetIn;
+  }
+  @keyframes sheetIn{
+    from{ opacity:0; transform:translateY(26px) }
+    to  { opacity:1; transform:translateY(0) }
+  }
+
+  /* 索引默认收起成一枚药丸，点开才滑出来 */
+  .legend{
+    left:var(--pad); right:auto;
+    width:auto; max-width:calc(100vw - 28px);
+    bottom:calc(var(--pad) + 88px + env(safe-area-inset-bottom,0px));
+  }
+  .legend-list{ max-height:44vh; width:min(62vw,240px) }
+
+  .back{
+    bottom:auto; top:var(--pad); right:var(--pad); left:auto;
+    display:grid; place-items:center;
+    width:78px; height:30px; padding:0;
+    font-size:11px;
+  }
+  .hud-b{ width:calc(100vw - 28px) }
+  .ruler{ width:100% }
+  .tools{ gap:5px }
+  .tools button{ padding:8px 10px; font-size:12px }
+  /* 七个按钮塞不进一行：主题与底纹在手机上只留图标 */
+  .tools .lab{ display:none }
+  .tools button.pick{ padding:8px 9px }
+  .tools .ico{ font-size:13px }
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{ animation-duration:.01ms !important; transition-duration:.01ms !important }
+}
+
+/* ---------- 巡演/录屏模式：?tour=1 自动演一遍，?tour=1&bare=1 连 HUD 都不要 ---------- */
+body.touring .tools,
+body.touring .ruler,
+body.touring .hud-tr,
+body.touring .legend,
+body.touring .back{ opacity:0; pointer-events:none; transition:opacity .6s ease }
+body.bare .hud-tl,
+body.bare .timeline{ opacity:0; transition:opacity .6s ease }
+body.touring .card{ animation-duration:.7s }
+
+/* ---------- 列表视图：同一批星换一种读法（8-17 安可点单） ----------
+   语汇跟着 HUD 走：玻璃面板、等宽小字标注、粉色只给焦点。
+   夜里是深玻璃，白天自动变成压在星图纸上的描图片（全吃 CSS 变量）。 */
+.listview[hidden]{ display:none }  /* 辞典老坑：display:flex 会盖掉 hidden，必须补这条 */
+.listview{
+  position:fixed; z-index:40;
+  top:clamp(86px,14vh,120px); right:var(--pad); bottom:96px;
+  width:min(460px,calc(100vw - var(--pad)*2));
+  display:flex; flex-direction:column;
+  background:var(--glass); border:1px solid var(--glass-line);
+  border-radius:14px; box-shadow:var(--glass-shadow);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+}
+.lv-head{
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  border-bottom:1px solid var(--glass-line);
+  font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.14em; color:var(--ink-dim);
+}
+.lv-title{ color:var(--ink) }
+.lv-count{ color:var(--ink-faint); letter-spacing:.06em }
+.lv-sort{ margin-left:auto }
+.lv-sort,.lv-close{
+  background:transparent; border:1px solid var(--glass-line); color:var(--ink-dim);
+  border-radius:8px; padding:4px 8px; cursor:pointer; font:inherit; letter-spacing:inherit;
+}
+.lv-close{ font-size:13px; line-height:1; padding:4px 8px; letter-spacing:0 }
+.lv-sort:hover,.lv-close:hover{ color:var(--pink); border-color:rgba(var(--pink-rgb),.4) }
+.lv-list{
+  list-style:none; margin:0; padding:6px; overflow-y:auto; flex:1;
+  overscroll-behavior:contain; scrollbar-width:thin;
+}
+.lv-list > li + li{ margin-top:2px }
+.lv-list button{
+  display:grid; grid-template-columns:auto 1fr auto auto; gap:10px; align-items:baseline;
+  width:100%; text-align:left; padding:9px 10px; border:0; border-radius:9px;
+  background:transparent; color:var(--ink); cursor:pointer; font:inherit;
+}
+.lv-list button:hover{ background:rgba(var(--pink-rgb),.08) }
+.lv-date{ font:500 10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--ink-faint); letter-spacing:.06em }
+.lv-main{ min-width:0 }
+.lv-main b{ font-weight:600; font-size:13px; line-height:1.35 }
+.lv-anchor{ font-style:normal; color:var(--hot-ink); margin-left:6px; font-size:11px }
+.lv-fade{ font-style:normal; color:var(--ink-faint); margin-left:6px }
+.lv-dom{
+  font-size:10px; color:var(--tint-ink); white-space:nowrap;
+  border:1px solid rgba(var(--tint),.35); border-radius:99px; padding:2px 8px;
+}
+.lv-cla{ font:500 10px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--ink-dim); min-width:4ch; text-align:right }
+.lv-empty{ padding:26px 0; text-align:center; color:var(--ink-faint); font:500 11px/1 ui-monospace,monospace; letter-spacing:.14em }
+#listbtn[aria-pressed="true"]{
+  color:var(--pink); background:rgba(var(--panel-on),1);
+  border-color:rgba(var(--pink-rgb),.45); box-shadow:0 0 18px rgba(var(--pink-rgb),.12);
+}
+@media (max-width:640px){
+  .listview{ left:10px; right:10px; width:auto; top:112px; bottom:104px }
+  .lv-dom{ display:none }
+}
+
+/* ---------- 原文档案（8-17）：卡片里的「展开原文」 ---------- */
+.orig{ margin-top:10px }
+.orig-btn{
+  background:transparent; border:1px solid var(--glass-line); color:var(--ink-dim);
+  border-radius:8px; padding:5px 10px; cursor:pointer;
+  font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em;
+}
+.orig-btn:hover{ color:var(--pink); border-color:rgba(var(--pink-rgb),.4) }
+.orig-btn[aria-expanded="true"]{ color:var(--pink) }
+.orig-body{
+  /* 8-26：原文框加高——正文已是全文，原文别再挤在小窗里 */
+  margin-top:8px; max-height:min(44vh,420px); overflow-y:auto; overscroll-behavior:contain;
+  border-left:2px solid rgba(var(--tint),.4); padding:2px 0 2px 10px;
+  scrollbar-width:thin;
+}
+.orig-body[hidden]{ display:none }
+.orig-body h4{
+  margin:10px 0 4px; font:600 9px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.1em; color:var(--ink-faint);
+}
+.orig-body h4:first-child{ margin-top:2px }
+.orig-body p{ margin:0 0 6px; font-size:12.5px; line-height:1.65; color:var(--ink) }
+.orig-loading{ color:var(--ink-faint) !important; font:500 10px/1.4 ui-monospace,monospace; letter-spacing:.12em }
+.lv-orig{ font-style:normal; margin-left:6px; font-size:11px }
+
+/* 8-17 审美整改：原文图标从 emoji 换成与放大镜同宗的细线描（安可：「图标好丑」） */
+.orig-btn{ display:inline-flex; align-items:center; gap:6px }
+.orig-btn svg{ width:12px; height:12px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round }
+.lv-orig svg{ width:11px; height:11px; fill:none; stroke:rgba(var(--tint),.85); stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; vertical-align:-1px }
+
+/* ── 记忆抽屉签（8-26 并入 LIST 视图）── */
+.lv-boxes{
+  display:flex; gap:6px; flex-wrap:wrap;
+  padding:8px 12px 2px;
+  border-bottom:1px solid rgba(var(--tint),.1);
+}
+.lv-boxes button{
+  border:1px solid rgba(var(--tint),.16); border-radius:20px;
+  background:transparent; color:var(--ink-dim); cursor:pointer;
+  font:600 10.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.06em; padding:5px 10px;
+}
+.lv-boxes button b{ font-weight:500; margin-left:4px; color:var(--ink-faint) }
+.lv-boxes button:hover{ color:var(--pink); border-color:rgba(var(--pink-rgb),.4) }
+.lv-boxes button[aria-pressed="true"]{
+  color:var(--pink); border-color:rgba(var(--pink-rgb),.55);
+  background:rgba(var(--pink-rgb),.1);
+}
+.lv-boxes button[aria-pressed="true"] b{ color:var(--pink) }
+
+/* LIST 搬进轨道索引头之后的开关态（8-26） */
+.legend-head #listbtn[aria-pressed="true"]{ color:var(--pink) }
+
+/* 搜索行（8-26 安可：搜索框缩短，右边让给侧边栏开关） */
+.find-row{ display:flex; gap:7px; align-items:stretch }
+.find-row .search{ flex:1; min-width:0 }
+.side-toggle{
+  flex:none; width:40px;
+  border-radius:14px; border:1px solid var(--glass-line);
+  background:var(--glass); backdrop-filter:blur(9px);
+  color:var(--ink-dim); font-size:16px; line-height:1; cursor:pointer;
+  transition:color var(--tt-ui,.22s) ease, border-color var(--tt-ui,.22s) ease;
+}
+.side-toggle:hover{ color:var(--ink); border-color:rgba(var(--tint),.32) }
+.side-toggle[aria-pressed="true"]{ color:var(--pink); border-color:rgba(var(--pink-rgb),.5) }
