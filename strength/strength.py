@@ -51,6 +51,7 @@ from datetime import date, datetime
 #     half_life_growth: 2.0
 #     eternal_at: 10
 #     resolved_factor: 0.5
+#     mood_axis_full: 8         # 轴幅度多少算「满格」（按自家标签的实际分布定）
 #   decay:
 #     archive: false        # true 才恢复老式「低分搬进 archive」
 #     threshold: 0.3        # 提取强度低于它算「正在变淡」（只计数，不搬）
@@ -79,16 +80,15 @@ URGENCY_BOOST = 1.5
 # （9-08 那次 45 个夹子并成 8 个，一口气给 329 只桶改了 domain，那不能算每只桶都被想起过一遍）
 EDIT_FIELDS = ("content", "meaning", "why_remembered")
 
-# 心情幅度表：tags 里的 `天气:雷暴` / `轴:思念+8`（tutooth 家的心情标签；没这些标签就是 0，不影响别人）
+# 心情幅度：tags 里的 `天气:落雪` / `轴:思念+8`（tutooth 家的心情标签；没这些标签就是 0，不影响别人）
+# 天气是「某根轴过了 0.5 就按它的天」盖上去的，所以下雪和雷暴一样重，只有放晴是「什么都没过线」：
 MOOD_WEATHER_AMP = {
-    "雷暴": 1.0, "暴风雨": 1.0, "雷雨": 1.0, "storm": 1.0,
-    "冰雹": 1.0, "雹": 1.0, "hail": 1.0,
-    "彩虹": 1.0, "rainbow": 1.0,
-    "落雨": 0.6, "雨": 0.6, "下雨": 0.6, "rain": 0.6,
-    "落雪": 0.6, "雪": 0.6, "下雪": 0.6, "snow": 0.6,
     "放晴": 0.3, "晴": 0.3, "晴天": 0.3, "clear": 0.3,
 }
-MOOD_AXIS_FULL = 12.0
+MOOD_WEATHER_DEFAULT = 0.7        # 其它任何天气（落雪/彩虹/落雨/冰雹/雷暴）一律 0.7
+# 轴幅度多少算满格：安可 9-10「我们家自己都从来没打到过满格」——按实际写过的分布定，
+# 44 条轴标签幅度 2–10、前两成 ≥8，所以 8 满格、4 半格（config strength.mood_axis_full 可改）
+MOOD_AXIS_FULL = 8.0
 _TAG_WEATHER_RE = re.compile(r"^\s*天气[:：]\s*(.+?)\s*$")
 _TAG_AXIS_RE = re.compile(r"^\s*轴[:：]\s*([^+\-0-9]+?)\s*([+\-]?\d+(?:\.\d+)?)?\s*$")
 
@@ -137,8 +137,8 @@ def days_since_active(meta: dict, fallback_days: float = DEFAULT_DAYS_FALLBACK) 
         return float(fallback_days)
 
 
-def mood_amplitude(meta: dict) -> float:
-    """从 tags 里读心情幅度（0–1）：天气按表给，轴按 |Δ|/12，取大；没写 → 0。"""
+def mood_amplitude(meta: dict, axis_full: float = MOOD_AXIS_FULL) -> float:
+    """从 tags 里读心情幅度（0–1）：天气按表给，轴按 |Δ|/满格，取大；没写 → 0。"""
     tags = (meta or {}).get("tags") or []
     if isinstance(tags, str):
         tags = [tags]
@@ -147,12 +147,12 @@ def mood_amplitude(meta: dict) -> float:
         t = str(t)
         m = _TAG_WEATHER_RE.match(t)
         if m:
-            amp = max(amp, MOOD_WEATHER_AMP.get(m.group(1).strip(), 0.5))
+            amp = max(amp, MOOD_WEATHER_AMP.get(m.group(1).strip(), MOOD_WEATHER_DEFAULT))
             continue
         m = _TAG_AXIS_RE.match(t)
         if m and m.group(2):
             try:
-                amp = max(amp, min(1.0, abs(float(m.group(2))) / MOOD_AXIS_FULL))
+                amp = max(amp, min(1.0, abs(float(m.group(2))) / max(0.1, axis_full)))
             except ValueError:
                 pass
     return amp
@@ -216,6 +216,7 @@ class StrengthModel:
         self.half_life_growth = float(st.get("half_life_growth", DEFAULT_HALF_LIFE_GROWTH))
         self.eternal_at = float(st.get("eternal_at", DEFAULT_ETERNAL_AT))
         self.resolved_factor = float(st.get("resolved_factor", DEFAULT_RESOLVED_FACTOR))
+        self.mood_axis_full = float(st.get("mood_axis_full", MOOD_AXIS_FULL))
         self.threshold = float(decay_cfg.get("threshold", 0.3))
         self.archive_enabled = _parse_bool(decay_cfg.get("archive", DEFAULT_ARCHIVE_ENABLED),
                                            default=DEFAULT_ARCHIVE_ENABLED)
@@ -248,7 +249,7 @@ class StrengthModel:
         s = (base
              + self.w_activation * math.log2(1.0 + count)
              + self.w_edit * math.log2(1.0 + edits)
-             + self.w_mood * mood_amplitude(meta))
+             + self.w_mood * mood_amplitude(meta, self.mood_axis_full))
         return round(max(STRENGTH_MIN, min(STRENGTH_MAX, s)), 3)
 
     # ---- 提取强度 ----
