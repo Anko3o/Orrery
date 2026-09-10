@@ -31,7 +31,7 @@
   var OAPI = "/ob-api/" + (window.orrery.brain === "feylor" ? "feylor" : "rime");
   function oapi(path, opt) {
     opt = opt || {};
-    var o = { method: opt.method || "GET", headers: {}, credentials: "same-origin" };
+    var o = { method: opt.method || "GET", headers: { "X-Requested-With": "XMLHttpRequest" }, credentials: "same-origin" };
     if (opt.body) { o.headers["Content-Type"] = "application/json"; o.body = JSON.stringify(opt.body); }
     return fetch(OAPI + path, o).then(function (r) {
       return r.text().then(function (t) {
@@ -137,7 +137,7 @@
   var BAPI = "/blocks/api";
   function bapi(path, opt) {
     opt = opt || {};
-    var o = { method: opt.method || "GET", headers: {}, credentials: "same-origin" };
+    var o = { method: opt.method || "GET", headers: { "X-Requested-With": "XMLHttpRequest" }, credentials: "same-origin" };
     if (opt.body) { o.headers["Content-Type"] = "application/json"; o.body = JSON.stringify(opt.body); }
     return fetch(BAPI + path, o).then(function (r) {
       if (!r.ok) throw new Error("blocks-api " + r.status);
