@@ -75,8 +75,9 @@ FRESHNESS_AMPLITUDE = 1.0
 # 紧急加成（沿用 OB 原有口径）：唤醒度高且未处理 → ×1.5
 AROUSAL_URGENCY_THRESHOLD = 0.7
 URGENCY_BOOST = 1.5
-# 实质改动才算「被改过」：只刷 last_active / activation_count / resolved 的不算
-EDIT_FIELDS = ("content", "meaning", "tags", "importance", "domain", "why_remembered")
+# 实质改动才算「被改过」：正文 / 感受 / 为什么留。改标签、换夹子、调重要度是整理不是回忆
+# （9-08 那次 45 个夹子并成 8 个，一口气给 329 只桶改了 domain，那不能算每只桶都被想起过一遍）
+EDIT_FIELDS = ("content", "meaning", "why_remembered")
 
 # 心情幅度表：tags 里的 `天气:雷暴` / `轴:思念+8`（tutooth 家的心情标签；没这些标签就是 0，不影响别人）
 MOOD_WEATHER_AMP = {

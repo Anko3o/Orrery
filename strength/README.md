@@ -59,7 +59,7 @@ OB 支持热更新，真正运行的代码可能在 **数据目录下的 `_app/s
 ```yaml
 strength:
   activation_weight: 0.6      # 激活次数每翻一倍，S +0.6
-  edit_weight: 0.6            # 实质改动（正文/感受/标签/重要度）次数每翻一倍，S +0.6，不封顶
+  edit_weight: 0.6            # 实质改动（正文/感受/为什么留；改标签换夹子不算）次数每翻一倍，S +0.6，不封顶
   mood_weight: 1.5            # 心情幅度满格，S +1.5（见下）
   half_life_base_days: 30     # S = pivot 时的半衰期
   half_life_pivot: 5
