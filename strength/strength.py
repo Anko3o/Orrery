@@ -12,7 +12,7 @@ OmbreBrain 原本的答案是一条固定的指数曲线：
 人不是这样忘东西的。心理学（Bjork & Bjork 的「新失用理论」）把记忆分成两个量：
 
   * 存储强度 Storage strength ——「这件事在你心里有多重」。只涨不跌。
-    被想起一次涨一点、被改动/追加涨一点、当时情绪重涨一点。核心准则封顶。
+    被想起、被改动/追加都往上加（次数每翻一倍加一档，不封顶），当时情绪重涨一点。核心准则封顶。
   * 提取强度 Retrieval strength ——「现在能不能自己想起来」。会掉，
     但一被提醒就回满；掉到零也只是「想不起来」，不是「没了」。
     掉的速度取决于存储强度：重要的事褪得慢，最重要的不褪。
@@ -44,8 +44,7 @@ from datetime import date, datetime
 # 调参面板 —— 全部可被 config.yaml 的 `strength:` 段逐项覆盖
 #   strength:
 #     activation_weight: 0.6
-#     edit_weight: 0.4
-#     edit_cap: 2.0
+#     edit_weight: 0.6
 #     mood_weight: 1.5
 #     half_life_base_days: 30
 #     half_life_pivot: 5
@@ -58,8 +57,8 @@ from datetime import date, datetime
 # ============================================================
 STRENGTH_MIN, STRENGTH_MAX = 1.0, 10.0
 DEFAULT_ACTIVATION_WEIGHT = 0.6   # 激活次数每翻一倍 +0.6（log2(1+count)）
-DEFAULT_EDIT_WEIGHT = 0.4         # 每次实质改动（正文/感受/标签/重要度/领域）+0.4
-DEFAULT_EDIT_CAP = 2.0            # 改动加分封顶
+DEFAULT_EDIT_WEIGHT = 0.6         # 实质改动（正文/感受/标签/重要度/领域）每翻一倍 +0.6（log2(1+次数)，不封顶：
+                                  #   安可 9-10「说不定有人就喜欢一两年内不停追加」——追加得越久爬得越高，直到 10）
 DEFAULT_MOOD_WEIGHT = 1.5         # 心情幅度满格 +1.5
 DEFAULT_HALF_LIFE_BASE_DAYS = 30.0  # 存储强度 = pivot 时的半衰期
 DEFAULT_HALF_LIFE_PIVOT = 5.0
@@ -210,7 +209,6 @@ class StrengthModel:
         decay_cfg = config.get("decay", {}) or {}
         self.w_activation = float(st.get("activation_weight", DEFAULT_ACTIVATION_WEIGHT))
         self.w_edit = float(st.get("edit_weight", DEFAULT_EDIT_WEIGHT))
-        self.edit_cap = float(st.get("edit_cap", DEFAULT_EDIT_CAP))
         self.w_mood = float(st.get("mood_weight", DEFAULT_MOOD_WEIGHT))
         self.half_life_base = float(st.get("half_life_base_days", DEFAULT_HALF_LIFE_BASE_DAYS))
         self.half_life_pivot = float(st.get("half_life_pivot", DEFAULT_HALF_LIFE_PIVOT))
@@ -248,7 +246,7 @@ class StrengthModel:
         edits = self.ledger.count(bucket_id or str(meta.get("id") or ""))
         s = (base
              + self.w_activation * math.log2(1.0 + count)
-             + min(self.edit_cap, self.w_edit * edits)
+             + self.w_edit * math.log2(1.0 + edits)
              + self.w_mood * mood_amplitude(meta))
         return round(max(STRENGTH_MIN, min(STRENGTH_MAX, s)), 3)
 
